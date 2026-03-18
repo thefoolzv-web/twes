@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>POLY·EDGE — AI Prediction Engine</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;600;700&family=Barlow+Condensed:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #04080d;
+  --s1: #080f1a;
+  --s2: #0d1826;
+  --s3: #111f33;
+  --green: #00e676;
+  --blue: #29b6f6;
+  --orange: #ff9100;
+  --red: #ff3d57;
+  --yellow: #ffd600;
+  --text: #cdd9e8;
+  --muted: #3d5570;
+  --border: rgba(0,230,118,0.12);
+  --border2: rgba(41,182,246,0.12);
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Barlow Condensed', sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+body::after {
+  content:'';
+  position:fixed;
+  inset:0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events:none;
+  z-index:999;
+  opacity:0.4;
+}
+body::before {
+  content:'';
+  position:fixed;
+  inset:0;
+  background-image:
+    linear-gradient(rgba(0,230,118,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,230,118,0.025) 1px, transparent 1px);
+  background-size: 50px 50px;
+  pointer-events:none;
+}
+.scanline {
+  position:fixed;
+  top:0; left:0; right:0;
+  height:2px;
+  background: linear-gradient(90deg, transparent, var(--green), var(--blue), transparent);
+  animation: scan 4s linear infinite;
+  opacity:0.4;
+  z-index:100;
+  pointer-events:none;
+}
+@keyframes scan { 0%{top:-2px} 100%{top:100vh} }
+.wrap { max-width:900px; margin:0 auto; padding:28px 20px 60px; position:relative; z-index:1; }
+
+/* HEADER */
+.header { display:flex; justify-content:space-between; align-items:center; margin-bottom:32px; padding-bottom:20px; border-bottom:1px solid var(--border); flex-wrap:wrap; gap:16px; }
+.logo { font-family:'IBM Plex Mono',monospace; font-size:20px; font-weight:700; color:var(--green); letter-spacing:-1px; }
+.logo em { color:var(--blue); font-style:normal; }
+.logo-sub { font-family:'IBM Plex Mono',monospace; font-size:9px; color:var(--muted); letter-spacing:3px; text-transform:uppercase; margin-top:2px; }
+.header-right { display:flex; gap:16px; align-items:center; flex-wrap:wrap; }
+.balance-card { background:var(--s1); border:1px solid var(--border); border-radius:6px; padding:10px 18px; text-align:right; cursor:pointer; transition:border-color 0.2s; }
+.balance-card:hover { border-color:var(--green); }
+.bal-label { font-family:'IBM Plex Mono',monospace; font-size:9px; color:var(--muted); letter-spacing:2px; text-transform:uppercase; }
+.bal-amount { font-family:'IBM Plex Mono',monospace; font-size:22px; font-weight:700; color:var(--green); transition:color 0.3s; }
+.bal-amount.up { color:var(--green); }
+.bal-amount.down { color:var(--red); }
+.bal-edit-row { display:none; align-items:center; gap:8px; margin-top:6px; }
+.bal-edit-row.show { display:flex; }
+.bal-input { background:var(--s2); border:1px solid var(--green); border-radius:4px; padding:4px 8px; color:var(--green); font-family:'IBM Plex Mono',monospace; font-size:13px; width:90px; outline:none; }
+.bal-save { background:var(--green); border:none; border-radius:3px; padding:4px 10px; color:var(--bg); font-family:'IBM Plex Mono',monospace; font-size:11px; font-weight:700; cursor:pointer; }
+.pnl-chip { font-family:'IBM Plex Mono',monospace; font-size:12px; padding:3px 10px; border-radius:20px; border:1px solid; }
+.pnl-pos { color:var(--green); border-color:var(--green); background:rgba(0,230,118,0.07); }
+.pnl-neg { color:var(--red); border-color:var(--red); background:rgba(255,61,87,0.07); }
+
+/* TABS */
+.tabs { display:flex; gap:0; margin-bottom:24px; border-bottom:1px solid var(--border2); }
+.tab { font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:2px; text-transform:uppercase; padding:10px 20px; cursor:pointer; color:var(--muted); border-bottom:2px solid transparent; transition:all 0.2s; background:none; border-top:none; border-left:none; border-right:none; }
+.tab.active { color:var(--green); border-bottom-color:var(--green); }
+.tab:hover:not(.active) { color:var(--text); }
+
+/* PANELS */
+.panel { display:none; }
+.panel.active { display:block; }
+
+/* CARDS */
+.analyze-card { background:var(--s1); border:1px solid var(--border); border-radius:8px; padding:24px 28px; margin-bottom:20px; position:relative; overflow:hidden; }
+.analyze-card::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; background:linear-gradient(90deg, var(--green), var(--blue), transparent); }
+.card-label { font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:3px; color:var(--blue); text-transform:uppercase; margin-bottom:14px; }
+
+/* INPUTS */
+.url-row { display:flex; gap:10px; align-items:stretch; }
+.url-input { flex:1; background:var(--s2); border:1px solid var(--border2); border-radius:6px; padding:13px 16px; color:var(--text); font-family:'IBM Plex Mono',monospace; font-size:13px; outline:none; transition:border-color 0.2s; }
+.url-input:focus { border-color:var(--blue); }
+.url-input::placeholder { color:var(--muted); }
+.fetch-btn { background:var(--blue); border:none; border-radius:6px; padding:13px 20px; color:var(--bg); font-family:'IBM Plex Mono',monospace; font-size:12px; font-weight:700; letter-spacing:1px; cursor:pointer; white-space:nowrap; transition:opacity 0.2s; }
+.fetch-btn:hover { opacity:0.85; }
+.or-divider { text-align:center; margin:14px 0; font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--muted); letter-spacing:2px; position:relative; }
+.or-divider::before,.or-divider::after { content:''; position:absolute; top:50%; width:calc(50% - 24px); height:1px; background:var(--border); }
+.or-divider::before { left:0; }
+.or-divider::after { right:0; }
+.manual-section { display:none; }
+.manual-section.show { display:block; }
+.field-label { font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--muted); letter-spacing:2px; text-transform:uppercase; margin-bottom:8px; }
+.question-input { width:100%; background:var(--s2); border:1px solid var(--border); border-radius:6px; padding:13px 16px; color:var(--text); font-family:'Barlow Condensed',sans-serif; font-size:16px; outline:none; transition:border-color 0.2s; margin-bottom:12px; }
+.question-input:focus { border-color:var(--green); }
+.question-input::placeholder { color:var(--muted); }
+.options-container { display:flex; flex-direction:column; gap:8px; margin-bottom:12px; }
+.opt-row { display:flex; gap:8px; align-items:center; }
+.opt-name { flex:2; background:var(--s2); border:1px solid var(--border2); border-radius:5px; padding:10px 14px; color:var(--text); font-family:'IBM Plex Mono',monospace; font-size:13px; outline:none; transition:border-color 0.2s; }
+.opt-name:focus { border-color:var(--blue); }
+.opt-price { flex:1; background:var(--s2); border:1px solid var(--border2); border-radius:5px; padding:10px 12px; color:var(--yellow); font-family:'IBM Plex Mono',monospace; font-size:13px; outline:none; max-width:100px; transition:border-color 0.2s; }
+.opt-price:focus { border-color:var(--yellow); }
+.opt-price::placeholder { color:var(--muted); }
+.opt-del { background:none; border:1px solid var(--muted); color:var(--muted); width:32px; height:32px; border-radius:4px; cursor:pointer; font-size:16px; display:flex; align-items:center; justify-content:center; transition:all 0.2s; flex-shrink:0; }
+.opt-del:hover { border-color:var(--red); color:var(--red); }
+.add-opt-btn { background:none; border:1px dashed var(--muted); color:var(--muted); padding:8px 16px; border-radius:5px; cursor:pointer; font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:1px; transition:all 0.2s; margin-bottom:14px; display:inline-block; }
+.add-opt-btn:hover { border-color:var(--blue); color:var(--blue); }
+.context-area { width:100%; background:var(--s2); border:1px solid var(--border); border-radius:6px; padding:13px 16px; color:var(--text); font-family:'IBM Plex Mono',monospace; font-size:12px; outline:none; resize:vertical; min-height:90px; line-height:1.7; transition:border-color 0.2s; }
+.context-area:focus { border-color:var(--green); }
+.context-area::placeholder { color:var(--muted); }
+.show-manual-btn { background:none; border:1px dashed var(--blue); color:var(--blue); padding:10px 20px; border-radius:5px; cursor:pointer; font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:2px; text-transform:uppercase; transition:all 0.2s; width:100%; margin-top:4px; }
+.show-manual-btn:hover { background:rgba(41,182,246,0.08); }
+.analyze-btn { width:100%; margin-top:20px; background:linear-gradient(135deg, #00e676 0%, #29b6f6 100%); border:none; border-radius:6px; padding:16px; font-family:'IBM Plex Mono',monospace; font-size:13px; font-weight:700; letter-spacing:3px; color:#04080d; cursor:pointer; text-transform:uppercase; transition:opacity 0.2s, transform 0.1s; position:relative; overflow:hidden; }
+.analyze-btn::before { content:''; position:absolute; inset:0; background:linear-gradient(135deg, transparent 40%, rgba(255,255,255,0.15)); }
+.analyze-btn:hover { opacity:0.88; }
+.analyze-btn:active { transform:scale(0.99); }
+.analyze-btn:disabled { opacity:0.3; cursor:not-allowed; }
+
+/* LOADING */
+.loading-box { display:none; background:var(--s1); border:1px solid var(--border); border-radius:8px; padding:44px 24px; text-align:center; margin-bottom:20px; }
+.loading-box.show { display:block; }
+.spinner { width:48px; height:48px; margin:0 auto 20px; position:relative; }
+.spinner-ring { width:100%; height:100%; border:2px solid transparent; border-top-color:var(--green); border-radius:50%; animation:spin 0.7s linear infinite; position:absolute; }
+.spinner-ring2 { width:70%; height:70%; top:15%; left:15%; border:2px solid transparent; border-bottom-color:var(--blue); border-radius:50%; animation:spin 1.1s linear infinite reverse; position:absolute; }
+@keyframes spin { to { transform:rotate(360deg); } }
+.loading-title { font-family:'IBM Plex Mono',monospace; font-size:13px; color:var(--green); letter-spacing:2px; margin-bottom:16px; animation:blink 1.4s ease-in-out infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+.loading-steps { display:flex; flex-direction:column; gap:5px; align-items:center; }
+.lstep { font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:1px; color:var(--muted); transition:color 0.4s; }
+.lstep.active { color:var(--blue); }
+.lstep.done { color:var(--green); }
+.lstep.done::before { content:'✓ '; }
+
+/* RESULTS */
+.results-box { display:none; }
+.results-box.show { display:block; }
+.result-meta { display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; flex-wrap:wrap; gap:10px; }
+.market-title-display { font-size:18px; font-weight:700; color:var(--text); line-height:1.3; flex:1; min-width:200px; }
+.edge-pill { font-family:'IBM Plex Mono',monospace; font-size:11px; padding:5px 14px; border-radius:20px; white-space:nowrap; }
+.edge-strong { background:rgba(0,230,118,0.1); border:1px solid var(--green); color:var(--green); }
+.edge-moderate { background:rgba(255,145,0,0.1); border:1px solid var(--orange); color:var(--orange); }
+.edge-weak { background:rgba(255,61,87,0.1); border:1px solid var(--red); color:var(--red); }
+.options-result { display:flex; flex-direction:column; gap:12px; margin-bottom:20px; }
+.res-card { background:var(--s1); border:1px solid rgba(255,255,255,0.05); border-radius:8px; padding:18px 22px; position:relative; overflow:hidden; transition:transform 0.2s, border-color 0.2s; }
+.res-card:hover { transform:translateX(3px); }
+.res-card.pick { border-color:rgba(0,230,118,0.35); background:linear-gradient(135deg, rgba(0,230,118,0.04), var(--s1)); }
+.res-card.pick::before { content:''; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--green); }
+.res-card.watch { border-color:rgba(255,145,0,0.2); }
+.res-card.watch::before { content:''; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--orange); }
+.res-card.skip { opacity:0.55; }
+.rc-top { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px; flex-wrap:wrap; gap:8px; }
+.rc-name { font-size:17px; font-weight:700; color:var(--text); }
+.res-card.pick .rc-name { color:var(--green); }
+.rc-prob { font-family:'IBM Plex Mono',monospace; font-size:28px; font-weight:700; line-height:1; }
+.prob-high { color:var(--green); }
+.prob-mid { color:var(--yellow); }
+.prob-low { color:var(--muted); }
+.rc-bar-bg { height:5px; background:var(--s3); border-radius:3px; overflow:hidden; margin-bottom:12px; }
+.rc-bar-fill { height:100%; border-radius:3px; width:0%; transition:width 1.2s cubic-bezier(0.4,0,0.2,1); }
+.fill-green { background:linear-gradient(90deg, var(--green), #69f0ae); }
+.fill-yellow { background:linear-gradient(90deg, var(--yellow), var(--orange)); }
+.fill-muted { background:var(--muted); }
+.rc-reasoning { font-family:'IBM Plex Mono',monospace; font-size:11px; color:#5a7a9a; line-height:1.8; margin-bottom:12px; }
+.rc-tags { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+.rtag { font-family:'IBM Plex Mono',monospace; font-size:10px; padding:3px 10px; border-radius:3px; letter-spacing:1px; text-transform:uppercase; }
+.rtag-pick { background:rgba(0,230,118,0.12); color:var(--green); border:1px solid rgba(0,230,118,0.3); }
+.rtag-watch { background:rgba(255,145,0,0.12); color:var(--orange); border:1px solid rgba(255,145,0,0.3); }
+.rtag-skip { background:rgba(255,61,87,0.08); color:var(--red); border:1px solid rgba(255,61,87,0.2); }
+.rtag-kelly { background:rgba(41,182,246,0.1); color:var(--blue); border:1px solid rgba(41,182,246,0.2); }
+.market-price-tag { font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--muted); }
+.market-price-tag span { color:var(--yellow); }
+
+/* KELLY BOX */
+.kelly-box { background:var(--s1); border:1px solid rgba(41,182,246,0.25); border-radius:8px; padding:20px 24px; margin-bottom:20px; position:relative; overflow:hidden; }
+.kelly-box::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; background:linear-gradient(90deg, var(--blue), transparent); }
+.kelly-title { font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:3px; color:var(--blue); text-transform:uppercase; margin-bottom:16px; }
+.kelly-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:12px; margin-bottom:16px; }
+.kelly-stat { background:var(--s2); border-radius:6px; padding:12px 16px; }
+.ks-label { font-family:'IBM Plex Mono',monospace; font-size:9px; color:var(--muted); letter-spacing:2px; text-transform:uppercase; margin-bottom:4px; }
+.ks-value { font-family:'IBM Plex Mono',monospace; font-size:20px; font-weight:700; }
+.ks-sub { font-family:'IBM Plex Mono',monospace; font-size:9px; color:var(--muted); margin-top:2px; }
+.ks-green { color:var(--green); }
+.ks-blue { color:var(--blue); }
+.ks-orange { color:var(--orange); }
+.ks-yellow { color:var(--yellow); }
+.ks-red { color:var(--red); }
+.kelly-verdict { background:var(--s2); border-left:3px solid var(--green); padding:12px 16px; border-radius:0 6px 6px 0; font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--text); line-height:1.7; }
+.kelly-verdict strong { color:var(--green); }
+
+/* ACTION BTNS */
+.log-bet-btn { width:100%; background:none; border:1px solid var(--green); color:var(--green); padding:14px; border-radius:6px; font-family:'IBM Plex Mono',monospace; font-size:12px; font-weight:700; letter-spacing:3px; text-transform:uppercase; cursor:pointer; transition:all 0.2s; margin-bottom:10px; }
+.log-bet-btn:hover { background:rgba(0,230,118,0.08); }
+.new-analysis-btn { width:100%; background:none; border:1px solid var(--muted); color:var(--muted); padding:12px; border-radius:6px; font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:2px; text-transform:uppercase; cursor:pointer; transition:all 0.2s; }
+.new-analysis-btn:hover { border-color:var(--text); color:var(--text); }
+
+/* MODAL */
+.modal-overlay { display:none; position:fixed; inset:0; background:rgba(4,8,13,0.88); z-index:500; align-items:center; justify-content:center; padding:20px; backdrop-filter:blur(4px); }
+.modal-overlay.show { display:flex; }
+.modal { background:var(--s1); border:1px solid var(--border2); border-radius:10px; padding:28px; max-width:420px; width:100%; position:relative; }
+.modal::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; background:linear-gradient(90deg, var(--blue), var(--green)); border-radius:10px 10px 0 0; }
+.modal-title { font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--blue); letter-spacing:3px; text-transform:uppercase; margin-bottom:20px; }
+.modal-q { font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--muted); margin-bottom:18px; line-height:1.5; }
+.outcome-btns { display:flex; gap:10px; margin-bottom:20px; }
+.outcome-btn { flex:1; padding:14px; border-radius:6px; border:1px solid; font-family:'IBM Plex Mono',monospace; font-size:12px; font-weight:700; letter-spacing:1px; cursor:pointer; transition:all 0.2s; background:none; }
+.outcome-win { border-color:var(--green); color:var(--green); }
+.outcome-win:hover,.outcome-win.sel { background:rgba(0,230,118,0.12); }
+.outcome-lose { border-color:var(--red); color:var(--red); }
+.outcome-lose:hover,.outcome-lose.sel { background:rgba(255,61,87,0.12); }
+.modal-input-row { display:flex; flex-direction:column; gap:8px; margin-bottom:16px; }
+.modal-input-label { font-family:'IBM Plex Mono',monospace; font-size:9px; color:var(--muted); letter-spacing:2px; text-transform:uppercase; }
+.modal-input { background:var(--s2); border:1px solid var(--border2); border-radius:5px; padding:10px 14px; color:var(--text); font-family:'IBM Plex Mono',monospace; font-size:14px; outline:none; width:100%; transition:border-color 0.2s; }
+.modal-input:focus { border-color:var(--blue); }
+.modal-submit { width:100%; background:linear-gradient(135deg, var(--blue), var(--green)); border:none; border-radius:6px; padding:13px; color:var(--bg); font-family:'IBM Plex Mono',monospace; font-size:12px; font-weight:700; letter-spacing:2px; cursor:pointer; margin-bottom:10px; transition:opacity 0.2s; }
+.modal-submit:hover { opacity:0.85; }
+.modal-cancel { width:100%; background:none; border:none; color:var(--muted); font-family:'IBM Plex Mono',monospace; font-size:11px; cursor:pointer; padding:8px; letter-spacing:1px; }
+.modal-cancel:hover { color:var(--text); }
+
+/* HISTORY */
+.history-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:12px; }
+.stats-strip { display:grid; grid-template-columns:repeat(auto-fit, minmax(120px, 1fr)); gap:10px; margin-bottom:24px; }
+.stat-box { background:var(--s1); border:1px solid var(--border); border-radius:6px; padding:14px 16px; }
+.sb-label { font-family:'IBM Plex Mono',monospace; font-size:9px; color:var(--muted); letter-spacing:2px; text-transform:uppercase; margin-bottom:4px; }
+.sb-value { font-family:'IBM Plex Mono',monospace; font-size:20px; font-weight:700; }
+.sb-green { color:var(--green); }
+.sb-red { color:var(--red); }
+.sb-blue { color:var(--blue); }
+.sb-yellow { color:var(--yellow); }
+.history-list { display:flex; flex-direction:column; gap:10px; }
+.hist-item { background:var(--s1); border:1px solid rgba(255,255,255,0.05); border-radius:7px; padding:14px 18px; display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; }
+.hist-item.win { border-left:3px solid var(--green); }
+.hist-item.loss { border-left:3px solid var(--red); }
+.hist-item.pending { border-left:3px solid var(--orange); }
+.hist-left { flex:1; min-width:160px; }
+.hist-market { font-size:14px; font-weight:600; color:var(--text); margin-bottom:4px; line-height:1.3; }
+.hist-pick { font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--muted); }
+.hist-pick span { color:var(--blue); }
+.hist-right { text-align:right; }
+.hist-amount { font-family:'IBM Plex Mono',monospace; font-size:16px; font-weight:700; }
+.hist-win-amount { color:var(--green); }
+.hist-loss-amount { color:var(--red); }
+.hist-pend-amount { color:var(--orange); }
+.hist-date { font-family:'IBM Plex Mono',monospace; font-size:9px; color:var(--muted); margin-top:2px; }
+.hist-resolve-btn { background:none; border:1px solid var(--muted); color:var(--muted); padding:4px 10px; border-radius:3px; font-family:'IBM Plex Mono',monospace; font-size:9px; cursor:pointer; letter-spacing:1px; transition:all 0.2s; margin-top:6px; }
+.hist-resolve-btn:hover { border-color:var(--orange); color:var(--orange); }
+.empty-state { text-align:center; padding:60px 24px; font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--muted); letter-spacing:1px; }
+.clear-btn { background:none; border:1px solid rgba(255,61,87,0.3); color:var(--red); padding:8px 16px; border-radius:5px; font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:1px; cursor:pointer; transition:all 0.2s; opacity:0.6; }
+.clear-btn:hover { opacity:1; background:rgba(255,61,87,0.08); }
+.divider { height:1px; background:var(--border); margin:20px 0; }
+.toast { position:fixed; bottom:28px; right:20px; background:var(--s2); border:1px solid var(--green); border-radius:6px; padding:12px 20px; font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--green); z-index:1000; transform:translateY(80px); opacity:0; transition:all 0.3s cubic-bezier(0.4,0,0.2,1); letter-spacing:1px; }
+.toast.show { transform:translateY(0); opacity:1; }
+.toast.err { border-color:var(--red); color:var(--red); }
+@keyframes fadeUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+.fade-up { animation:fadeUp 0.4s ease forwards; }
+</style>
+</head>
+<body>
+<div class="scanline"></div>
+<div class="wrap">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="logo-block">
+      <div class="logo">POLY<em>·</em>EDGE</div>
+      <div class="logo-sub">AI Prediction Engine · Kelly MM</div>
+    </div>
+    <div class="header-right">
+      <div id="pnlChip" class="pnl-chip pnl-pos" style="display:none"></div>
+      <div class="balance-card" onclick="toggleBalEdit()">
+        <div class="bal-label">BANKROLL</div>
+        <div class="bal-amount" id="balDisplay">$20.00</div>
+        <div class="bal-edit-row" id="balEditRow">
+          <input class="bal-input" id="balInput" type="number" min="0" step="0.01" placeholder="20.00">
+          <button class="bal-save" onclick="saveBalance(event)">SET</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('analyze',this)">ANALYZE</button>
+    <button class="tab" onclick="switchTab('history',this)">HISTORY <span id="histCount">(0)</span></button>
+  </div>
+
+  <!-- ANALYZE PANEL -->
+  <div class="panel active" id="panel-analyze">
+    <div class="analyze-card" id="inputCard">
+      <div class="card-label">▸ POLYMARKET URL</div>
+      <div class="url-row">
+        <input class="url-input" id="urlInput" type="url" placeholder="https://polymarket.com/event/...">
+        <button class="fetch-btn" onclick="prefillFromUrl()">PARSE</button>
+      </div>
+      <div class="or-divider">OR</div>
+      <button class="show-manual-btn" id="showManualBtn" onclick="toggleManual()">▸ INPUT MANUAL</button>
+
+      <div class="manual-section" id="manualSection">
+        <div class="divider"></div>
+        <div class="card-label">▸ PERTANYAAN MARKET</div>
+        <input class="question-input" id="questionInput" placeholder="Will X happen before Y date?">
+        <div class="card-label">▸ OPSI <small style="font-size:9px;color:var(--muted)">(nama + harga pasar 0–1)</small></div>
+        <div class="options-container" id="optionsContainer">
+          <div class="opt-row">
+            <input class="opt-name" placeholder="YES" value="YES">
+            <input class="opt-price" placeholder="0.65" type="number" min="0" max="1" step="0.01">
+            <button class="opt-del" onclick="delOption(this)">×</button>
+          </div>
+          <div class="opt-row">
+            <input class="opt-name" placeholder="NO" value="NO">
+            <input class="opt-price" placeholder="0.35" type="number" min="0" max="1" step="0.01">
+            <button class="opt-del" onclick="delOption(this)">×</button>
+          </div>
+        </div>
+        <button class="add-opt-btn" onclick="addOption()">+ ADD OPTION</button>
+        <div class="card-label">▸ KONTEKS / INFO TAMBAHAN</div>
+        <textarea class="context-area" id="contextInput" placeholder="Masukkan berita terbaru, sentiment, data historis, atau faktor apapun yang relevan dengan market ini..."></textarea>
+      </div>
+
+      <button class="analyze-btn" id="analyzeBtn" onclick="runAnalysis()">◈ ANALYZE &amp; PREDICT</button>
+    </div>
+
+    <div class="loading-box" id="loadingBox">
+      <div class="spinner"><div class="spinner-ring"></div><div class="spinner-ring2"></div></div>
+      <div class="loading-title" id="loadingTitle">INITIALIZING ENGINE...</div>
+      <div class="loading-steps">
+        <div class="lstep" id="step1">PARSING MARKET DATA</div>
+        <div class="lstep" id="step2">SCANNING CONTEXT SIGNALS</div>
+        <div class="lstep" id="step3">CALIBRATING PROBABILITIES</div>
+        <div class="lstep" id="step4">RUNNING KELLY CRITERION</div>
+        <div class="lstep" id="step5">GENERATING EDGE REPORT</div>
+      </div>
+    </div>
+
+    <div class="results-box" id="resultsBox">
+      <div class="result-meta">
+        <div class="market-title-display" id="resultMarketTitle"></div>
+        <div class="edge-pill" id="edgePill"></div>
+      </div>
+      <div class="options-result" id="optionsResult"></div>
+      <div class="kelly-box" id="kellyBox">
+        <div class="kelly-title">▸ KELLY CRITERION · MONEY MANAGEMENT</div>
+        <div class="kelly-grid" id="kellyGrid"></div>
+        <div class="kelly-verdict" id="kellyVerdict"></div>
+      </div>
+      <button class="log-bet-btn" onclick="openLogModal()">◎ LOG BET INI</button>
+      <button class="new-analysis-btn" onclick="resetAnalysis()">↺ ANALISIS BARU</button>
+    </div>
+  </div>
+
+  <!-- HISTORY PANEL -->
+  <div class="panel" id="panel-history">
+    <div class="history-header">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:3px;text-transform:uppercase;">▸ BET HISTORY</div>
+      <button class="clear-btn" onclick="clearHistory()">CLEAR ALL</button>
+    </div>
+    <div class="stats-strip" id="statsStrip"></div>
+    <div class="history-list" id="historyList"></div>
+  </div>
+
+</div>
+
+<!-- LOG MODAL -->
+<div class="modal-overlay" id="logModal">
+  <div class="modal">
+    <div class="modal-title">▸ LOG BET</div>
+    <div class="modal-q" id="modalMarketQ"></div>
+    <div class="modal-input-row">
+      <div class="modal-input-label">PICK</div>
+      <input class="modal-input" id="modalPick" readonly>
+    </div>
+    <div class="modal-input-row">
+      <div class="modal-input-label">AMOUNT ($)</div>
+      <input class="modal-input" id="modalAmount" type="number" min="0.01" step="0.01">
+    </div>
+    <div class="modal-input-row">
+      <div class="modal-input-label">STATUS</div>
+      <div class="outcome-btns">
+        <button class="outcome-btn" id="btnPending" onclick="setStatus('pending')" style="border-color:var(--orange);color:var(--orange)">PENDING</button>
+        <button class="outcome-btn outcome-win" id="btnWin" onclick="setStatus('win')">WIN ✓</button>
+        <button class="outcome-btn outcome-lose" id="btnLose" onclick="setStatus('loss')">LOSS ✗</button>
+      </div>
+    </div>
+    <div class="modal-input-row" id="returnRow" style="display:none">
+      <div class="modal-input-label">RETURN ($)</div>
+      <input class="modal-input" id="modalReturn" type="number" min="0" step="0.01" placeholder="Total uang kembali">
+    </div>
+    <button class="modal-submit" onclick="submitLog()">SAVE TO LOG</button>
+    <button class="modal-cancel" onclick="closeLogModal()">CANCEL</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── STATE ──
+let balance = parseFloat(localStorage.getItem('pe_balance') || '20');
+let startBalance = parseFloat(localStorage.getItem('pe_startBal') || '20');
+let history = JSON.parse(localStorage.getItem('pe_history') || '[]');
+let currentAnalysis = null;
+let betStatus = 'pending';
+
+updateBalanceDisplay();
+renderHistory();
+
+// ── BALANCE ──
+function toggleBalEdit() {
+  const row = document.getElementById('balEditRow');
+  row.classList.toggle('show');
+  if (row.classList.contains('show')) {
+    document.getElementById('balInput').value = balance.toFixed(2);
+    document.getElementById('balInput').focus();
+  }
+}
+function saveBalance(e) {
+  e.stopPropagation();
+  const v = parseFloat(document.getElementById('balInput').value);
+  if (!isNaN(v) && v > 0) {
+    balance = v; startBalance = v;
+    localStorage.setItem('pe_balance', balance);
+    localStorage.setItem('pe_startBal', startBalance);
+    updateBalanceDisplay();
+    document.getElementById('balEditRow').classList.remove('show');
+    showToast('Bankroll → $' + balance.toFixed(2));
+  }
+}
+function updateBalanceDisplay() {
+  const el = document.getElementById('balDisplay');
+  el.textContent = '$' + balance.toFixed(2);
+  const pnl = balance - startBalance;
+  const chip = document.getElementById('pnlChip');
+  if (Math.abs(pnl) > 0.001) {
+    chip.style.display = 'inline-block';
+    chip.textContent = (pnl >= 0 ? '+' : '') + pnl.toFixed(2) + ' P&L';
+    chip.className = 'pnl-chip ' + (pnl >= 0 ? 'pnl-pos' : 'pnl-neg');
+    el.className = 'bal-amount ' + (pnl >= 0 ? 'up' : 'down');
+  } else { chip.style.display = 'none'; el.className = 'bal-amount'; }
+}
+
+// ── TABS ──
+function switchTab(name, btn) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+  btn.classList.add('active');
+  if (name === 'history') renderHistory();
+}
+
+// ── MANUAL ──
+function toggleManual() {
+  const sec = document.getElementById('manualSection');
+  const btn = document.getElementById('showManualBtn');
+  sec.classList.toggle('show');
+  btn.textContent = sec.classList.contains('show') ? '▾ SEMBUNYIKAN MANUAL' : '▸ INPUT MANUAL';
+}
+function addOption() {
+  const c = document.getElementById('optionsContainer');
+  const row = document.createElement('div');
+  row.className = 'opt-row';
+  row.innerHTML = `<input class="opt-name" placeholder="Option..."><input class="opt-price" placeholder="0.XX" type="number" min="0" max="1" step="0.01"><button class="opt-del" onclick="delOption(this)">×</button>`;
+  c.appendChild(row);
+}
+function delOption(btn) {
+  if (document.querySelectorAll('#optionsContainer .opt-row').length > 2) btn.parentElement.remove();
+  else showToast('Minimal 2 opsi');
+}
+function prefillFromUrl() {
+  const url = document.getElementById('urlInput').value.trim();
+  if (!url) { showToast('Masukkan URL dulu'); return; }
+  document.getElementById('manualSection').classList.add('show');
+  document.getElementById('showManualBtn').textContent = '▾ SEMBUNYIKAN MANUAL';
+  const slug = url.split('/').filter(Boolean).pop() || '';
+  document.getElementById('questionInput').value = slug.replace(/-/g, ' ');
+  showToast('Prefilled dari URL — cek & lengkapi opsi');
+}
+
+// ── ANALYSIS ──
+async function runAnalysis() {
+  const question = document.getElementById('questionInput').value.trim();
+  const url = document.getElementById('urlInput').value.trim();
+  if (!question && !url) { showToast('Isi market question dulu'); return; }
+
+  const optRows = document.querySelectorAll('#optionsContainer .opt-row');
+  const options = [];
+  optRows.forEach(row => {
+    const name = row.querySelector('.opt-name').value.trim();
+    const price = parseFloat(row.querySelector('.opt-price').value) || null;
+    if (name) options.push({ name, price });
+  });
+  if (options.length < 2) { showToast('Minimal 2 opsi'); return; }
+
+  const context = document.getElementById('contextInput').value.trim();
+  const marketQ = question || url;
+
+  const optionsText = options.map(o =>
+    `- ${o.name}${o.price !== null ? ` (market price: ${(o.price*100).toFixed(1)}%)` : ''}`
+  ).join('\n');
+
+  const prompt = `Kamu adalah AI predictor profesional untuk Polymarket prediction market. Analisis market berikut dan beri rekomendasi betting dengan Kelly Criterion money management.
+
+MARKET: "${marketQ}"
+${url ? `URL: ${url}` : ''}
+
+OPSI AVAILABLE:
+${optionsText}
+
+KONTEKS / INFO TAMBAHAN:
+${context || '(tidak ada konteks tambahan — gunakan pengetahuan umum)'}
+
+BANKROLL: $${balance.toFixed(2)}
+
+Tugasmu:
+1. Assign probabilitas AI (independent dari market price) berdasarkan logic, konteks, dan pengetahuan faktual
+2. Bandingkan dengan market price — cari mispricing / edge
+3. Hitung Kelly Criterion untuk sizing optimal
+
+Respond ONLY with valid JSON (no markdown backtick, no preamble), format EXACT:
+{
+  "market_title": "judul singkat market ini max 60 char",
+  "overall_edge": "STRONG|MODERATE|WEAK",
+  "edge_explanation": "1-2 kalimat kenapa ada atau tidak ada edge di market ini",
+  "options": [
+    {
+      "name": "nama opsi",
+      "market_price": 0.65,
+      "ai_probability": 0.72,
+      "edge": 0.07,
+      "verdict": "PICK|WATCH|SKIP",
+      "reasoning": "2-3 kalimat reasoning: kenapa probabilitasnya segini, faktor apa yang mendorong atau melemahkan opsi ini",
+      "signal_tags": ["TAG1", "TAG2"]
+    }
+  ],
+  "kelly": {
+    "best_pick": "nama opsi terbaik untuk di-bet",
+    "ai_prob": 0.72,
+    "market_price": 0.65,
+    "kelly_fraction": 0.15,
+    "half_kelly": 0.075,
+    "recommended_bet": 1.50,
+    "expected_value": 0.12,
+    "max_bet": 5.00,
+    "verdict": "Penjelasan lengkap dalam bahasa Indonesia: kenapa bet ini worth it atau tidak, berapa sizing optimal, risk-reward ratio, kondisi ideal untuk masuk atau skip"
+  }
+}
+
+Formula Kelly: f = (p*b - (1-p)) / b, di mana b = (1/market_price) - 1 (odds desimal).
+Gunakan half_kelly = kelly_fraction / 2 untuk safety.
+recommended_bet = half_kelly * bankroll, maksimum 25% bankroll.
+Jika edge negatif → recommended_bet = 0, verdict = jangan bet.`;
+
+  // Show loading
+  document.getElementById('inputCard').style.display = 'none';
+  document.getElementById('loadingBox').classList.add('show');
+  document.getElementById('analyzeBtn').disabled = true;
+
+  const steps = ['step1','step2','step3','step4','step5'];
+  const titles = ['PARSING MARKET DATA...','SCANNING SIGNALS...','CALIBRATING PROBS...','RUNNING KELLY...','GENERATING REPORT...'];
+  let si = 0;
+  const stepInterval = setInterval(() => {
+    if (si > 0) { document.getElementById(steps[si-1]).classList.remove('active'); document.getElementById(steps[si-1]).classList.add('done'); }
+    if (si < steps.length) { document.getElementById(steps[si]).classList.add('active'); document.getElementById('loadingTitle').textContent = titles[si]; si++; }
+  }, 1000);
+
+  try {
+    // Call our serverless API proxy
+    const resp = await fetch('/api/predict', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt })
+    });
+
+    clearInterval(stepInterval);
+    steps.forEach(s => { document.getElementById(s).classList.remove('active'); document.getElementById(s).classList.add('done'); });
+
+    if (!resp.ok) {
+      const err = await resp.json();
+      throw new Error(err.error || 'API error ' + resp.status);
+    }
+
+    const data = await resp.json();
+    let raw = data.content.map(b => b.text || '').join('');
+    raw = raw.replace(/```json|```/g, '').trim();
+    const result = JSON.parse(raw);
+
+    currentAnalysis = { marketQ, url, result, options, timestamp: Date.now() };
+    renderResults(result);
+
+  } catch (err) {
+    clearInterval(stepInterval);
+    document.getElementById('loadingBox').classList.remove('show');
+    document.getElementById('inputCard').style.display = 'block';
+    document.getElementById('analyzeBtn').disabled = false;
+    showToast('Error: ' + err.message, true);
+  }
+}
+
+function renderResults(r) {
+  document.getElementById('loadingBox').classList.remove('show');
+  document.getElementById('resultsBox').classList.add('show');
+
+  document.getElementById('resultMarketTitle').textContent = r.market_title;
+  const pill = document.getElementById('edgePill');
+  const edgeMap = { STRONG:['edge-strong','EDGE KUAT ◆'], MODERATE:['edge-moderate','EDGE SEDANG ◇'], WEAK:['edge-weak','EDGE LEMAH ◌'] };
+  const [cls, txt] = edgeMap[r.overall_edge] || edgeMap['WEAK'];
+  pill.className = 'edge-pill ' + cls;
+  pill.textContent = txt;
+
+  const container = document.getElementById('optionsResult');
+  container.innerHTML = '';
+  r.options.sort((a,b) => b.ai_probability - a.ai_probability);
+
+  r.options.forEach((opt, i) => {
+    const prob = opt.ai_probability;
+    const probPct = (prob * 100).toFixed(1);
+    const mktPct = opt.market_price ? (opt.market_price * 100).toFixed(1) : '—';
+    const edgeVal = opt.edge ? (opt.edge > 0 ? '+' : '') + (opt.edge * 100).toFixed(1) + '%' : '—';
+    const fillClass = prob >= 0.6 ? 'fill-green' : prob >= 0.4 ? 'fill-yellow' : 'fill-muted';
+    const probClass = prob >= 0.6 ? 'prob-high' : prob >= 0.4 ? 'prob-mid' : 'prob-low';
+    const isTop = opt.verdict === 'PICK';
+    const isWatch = opt.verdict === 'WATCH';
+    const cardClass = isTop ? 'pick' : isWatch ? 'watch' : 'skip';
+    const tagClass = isTop ? 'rtag-pick' : isWatch ? 'rtag-watch' : 'rtag-skip';
+    const tagTxt = isTop ? '◆ TOP PICK' : isWatch ? '◇ WATCH' : '◌ SKIP';
+    const signals = (opt.signal_tags || []).map(t => `<span class="rtag rtag-kelly">${t}</span>`).join('');
+
+    const card = document.createElement('div');
+    card.className = `res-card ${cardClass} fade-up`;
+    card.style.animationDelay = (i * 0.1) + 's';
+    card.innerHTML = `
+      <div class="rc-top">
+        <div class="rc-name">${opt.name}</div>
+        <div class="rc-prob ${probClass}">${probPct}%</div>
+      </div>
+      <div class="rc-bar-bg"><div class="rc-bar-fill ${fillClass}" data-w="${probPct}"></div></div>
+      <div class="rc-reasoning">${opt.reasoning}</div>
+      <div class="rc-tags">
+        <span class="rtag ${tagClass}">${tagTxt}</span>
+        ${mktPct !== '—' ? `<span class="market-price-tag">MKT <span>${mktPct}%</span></span>` : ''}
+        ${edgeVal !== '—' ? `<span class="rtag rtag-kelly">EDGE ${edgeVal}</span>` : ''}
+        ${signals}
+      </div>`;
+    container.appendChild(card);
+  });
+
+  setTimeout(() => {
+    document.querySelectorAll('.rc-bar-fill').forEach(b => { b.style.width = b.dataset.w + '%'; });
+  }, 150);
+
+  const k = r.kelly;
+  const ev = k.expected_value;
+  const betSafe = Math.min(k.recommended_bet || 0, balance * 0.25);
+  document.getElementById('kellyGrid').innerHTML = `
+    <div class="kelly-stat"><div class="ks-label">BEST PICK</div><div class="ks-value ks-blue" style="font-size:14px;line-height:1.3">${k.best_pick}</div></div>
+    <div class="kelly-stat"><div class="ks-label">AI PROB</div><div class="ks-value ks-green">${(k.ai_prob*100).toFixed(1)}%</div><div class="ks-sub">vs MKT ${(k.market_price*100).toFixed(1)}%</div></div>
+    <div class="kelly-stat"><div class="ks-label">KELLY %</div><div class="ks-value ks-yellow">${(k.half_kelly*100).toFixed(1)}%</div><div class="ks-sub">half-kelly</div></div>
+    <div class="kelly-stat"><div class="ks-label">BET SIZE</div><div class="ks-value ${betSafe > 0 ? 'ks-green' : 'ks-red'}">$${betSafe.toFixed(2)}</div><div class="ks-sub">dari $${balance.toFixed(2)}</div></div>
+    <div class="kelly-stat"><div class="ks-label">EXP VALUE</div><div class="ks-value ${ev >= 0 ? 'ks-green' : 'ks-red'}">${ev >= 0 ? '+' : ''}${(ev*100).toFixed(1)}%</div></div>
+    <div class="kelly-stat"><div class="ks-label">MAX BET</div><div class="ks-value ks-orange">$${Math.min(k.max_bet || balance*0.25, balance*0.25).toFixed(2)}</div><div class="ks-sub">25% cap</div></div>`;
+  document.getElementById('kellyVerdict').innerHTML = k.verdict.replace(/\$[\d.]+/g, s => `<strong>${s}</strong>`);
+
+  document.getElementById('modalPick').value = k.best_pick;
+  document.getElementById('modalAmount').value = betSafe.toFixed(2);
+  document.getElementById('modalMarketQ').textContent = r.market_title;
+}
+
+function resetAnalysis() {
+  currentAnalysis = null;
+  document.getElementById('inputCard').style.display = 'block';
+  document.getElementById('loadingBox').classList.remove('show');
+  document.getElementById('resultsBox').classList.remove('show');
+  document.getElementById('analyzeBtn').disabled = false;
+  ['step1','step2','step3','step4','step5'].forEach(s => { document.getElementById(s).classList.remove('active','done'); });
+  document.getElementById('loadingTitle').textContent = 'INITIALIZING ENGINE...';
+}
+
+// ── LOG BET ──
+function openLogModal() {
+  betStatus = 'pending';
+  updateStatusBtns();
+  document.getElementById('returnRow').style.display = 'none';
+  document.getElementById('logModal').classList.add('show');
+}
+function closeLogModal() { document.getElementById('logModal').classList.remove('show'); }
+function setStatus(s) {
+  betStatus = s;
+  updateStatusBtns();
+  document.getElementById('returnRow').style.display = s !== 'pending' ? 'flex' : 'none';
+}
+function updateStatusBtns() {
+  document.getElementById('btnPending').style.background = betStatus === 'pending' ? 'rgba(255,145,0,0.15)' : '';
+  document.getElementById('btnWin').style.background = betStatus === 'win' ? 'rgba(0,230,118,0.12)' : '';
+  document.getElementById('btnLose').style.background = betStatus === 'loss' ? 'rgba(255,61,87,0.12)' : '';
+}
+function submitLog() {
+  const pick = document.getElementById('modalPick').value;
+  const amount = parseFloat(document.getElementById('modalAmount').value);
+  const ret = parseFloat(document.getElementById('modalReturn').value) || 0;
+  if (!pick || isNaN(amount) || amount <= 0) { showToast('Isi pick & amount'); return; }
+
+  const entry = {
+    id: Date.now(),
+    market: currentAnalysis?.result?.market_title || 'Market',
+    pick, amount, status: betStatus,
+    returnAmount: ret,
+    pnl: betStatus === 'win' ? ret - amount : betStatus === 'loss' ? -amount : 0,
+    timestamp: Date.now()
+  };
+
+  if (betStatus === 'win') balance = balance - amount + ret;
+  else if (betStatus === 'loss') balance = Math.max(0, balance - amount);
+  else balance = Math.max(0, balance - amount);
+
+  localStorage.setItem('pe_balance', balance);
+  history.unshift(entry);
+  localStorage.setItem('pe_history', JSON.stringify(history));
+  updateBalanceDisplay();
+  renderHistory();
+  closeLogModal();
+  showToast(betStatus === 'win' ? `WIN! +$${(ret-amount).toFixed(2)}` : betStatus === 'loss' ? `Loss -$${amount.toFixed(2)}` : `Logged $${amount.toFixed(2)} (pending)`);
+}
+
+// ── HISTORY ──
+function renderHistory() {
+  const list = document.getElementById('historyList');
+  const strip = document.getElementById('statsStrip');
+  document.getElementById('histCount').textContent = `(${history.length})`;
+  if (!history.length) {
+    strip.innerHTML = '';
+    list.innerHTML = '<div class="empty-state">NO BETS YET<br><br>Analyze a market dan log bet pertama lu</div>';
+    return;
+  }
+  const wins = history.filter(h => h.status === 'win').length;
+  const losses = history.filter(h => h.status === 'loss').length;
+  const pending = history.filter(h => h.status === 'pending').length;
+  const totalPnl = history.filter(h => h.status !== 'pending').reduce((s,h) => s + h.pnl, 0);
+  const wr = (wins+losses) > 0 ? ((wins/(wins+losses))*100).toFixed(0) : 0;
+  const totalBet = history.reduce((s,h) => s + h.amount, 0);
+  const roi = totalBet > 0 ? ((totalPnl/totalBet)*100).toFixed(1) : 0;
+
+  strip.innerHTML = `
+    <div class="stat-box"><div class="sb-label">WIN RATE</div><div class="sb-value ${wr>=50?'sb-green':'sb-red'}">${wr}%</div></div>
+    <div class="stat-box"><div class="sb-label">TOTAL P&L</div><div class="sb-value ${totalPnl>=0?'sb-green':'sb-red'}">${totalPnl>=0?'+':''}$${totalPnl.toFixed(2)}</div></div>
+    <div class="stat-box"><div class="sb-label">ROI</div><div class="sb-value ${roi>=0?'sb-green':'sb-red'}">${roi>=0?'+':''}${roi}%</div></div>
+    <div class="stat-box"><div class="sb-label">W / L / P</div><div class="sb-value sb-blue">${wins}/${losses}/${pending}</div></div>`;
+
+  list.innerHTML = '';
+  history.forEach(h => {
+    const d = new Date(h.timestamp);
+    const ds = d.toLocaleDateString('id-ID',{day:'2-digit',month:'short'}) + ' ' + d.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'});
+    const pnlStr = h.status === 'win' ? `+$${(h.returnAmount-h.amount).toFixed(2)}` : h.status === 'loss' ? `-$${h.amount.toFixed(2)}` : `$${h.amount.toFixed(2)}`;
+    const amtClass = h.status === 'win' ? 'hist-win-amount' : h.status === 'loss' ? 'hist-loss-amount' : 'hist-pend-amount';
+    const div = document.createElement('div');
+    div.className = `hist-item ${h.status}`;
+    div.innerHTML = `
+      <div class="hist-left">
+        <div class="hist-market">${h.market}</div>
+        <div class="hist-pick">PICK: <span>${h.pick}</span></div>
+        ${h.status === 'pending' ? `<button class="hist-resolve-btn" onclick="resolveBet(${h.id})">RESOLVE</button>` : ''}
+      </div>
+      <div class="hist-right">
+        <div class="hist-amount ${amtClass}">${pnlStr}</div>
+        <div class="hist-date">${ds}</div>
+        <div class="hist-date">${h.status.toUpperCase()}</div>
+      </div>`;
+    list.appendChild(div);
+  });
+}
+
+function resolveBet(id) {
+  const bet = history.find(h => h.id === id);
+  if (!bet) return;
+  const res = prompt(`Resolve "${bet.market}"\nKetik WIN atau LOSS:`);
+  if (!res) return;
+  const outcome = res.trim().toUpperCase();
+  if (outcome !== 'WIN' && outcome !== 'LOSS') { showToast('Ketik WIN atau LOSS'); return; }
+  balance += bet.amount; // restore deduction
+  if (outcome === 'WIN') {
+    const retStr = prompt('Total uang kembali ($):');
+    const ret = parseFloat(retStr) || 0;
+    bet.status = 'win'; bet.returnAmount = ret; bet.pnl = ret - bet.amount;
+    balance += ret;
+  } else { bet.status = 'loss'; bet.pnl = -bet.amount; }
+  localStorage.setItem('pe_balance', balance);
+  localStorage.setItem('pe_history', JSON.stringify(history));
+  updateBalanceDisplay(); renderHistory();
+  showToast('Resolved: ' + outcome);
+}
+
+function clearHistory() {
+  if (!confirm('Clear semua history?')) return;
+  history = [];
+  localStorage.setItem('pe_history', '[]');
+  renderHistory();
+  showToast('History cleared');
+}
+
+function showToast(msg, isErr=false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (isErr ? ' err' : '');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+</script>
+</body>
+</html>
